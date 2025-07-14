@@ -15,4 +15,5 @@ $ uvicorn main:app --reload --port 9000
 APIのテスト
 ```
 $ Invoke-RestMethod -Method GET -Uri 'http://127.0.0.1:9000'
+$ Invoke-RestMethod -Method POST -Uri 'http://127.0.0.1:9000/memos' -ContentType 'application/x-www-form-urlencoded' -Body 'title=jacket&body=testbody'
 ```
