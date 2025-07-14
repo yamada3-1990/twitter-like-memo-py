@@ -11,3 +11,8 @@ backendの実行
 $ cd backend
 $ uvicorn main:app --reload --port 9000
 ```
+
+APIのテスト
+```
+$ Invoke-RestMethod -Method GET -Uri 'http://127.0.0.1:9000'
+```
