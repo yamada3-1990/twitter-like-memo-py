@@ -95,12 +95,14 @@ def delete_memo(memo: Memo):
 # MARK: - GET /search/keyword
 @app.get("/search/{keyword}")
 def search_memo_by_keyword():
+    Search_memo_by_keyword(db, keyword=keyword)
     pass
 
 
 # MARK: - GET /search/tags
 @app.get("/search/{tags}")
-
+def search_memo_by_tags():
+    Search_memo_by_tags(db, tags=tags)
 
 
 
@@ -172,5 +174,46 @@ def Search_memo_by_keyword(db: sqlite3.Connection, keyword: str):
 
 # MARK: - Search_memo_by_tags()   
 def Search_memo_by_tags(db: sqlite3.Connection, tags: str):
-    pass
-
+    tag_list = tags.split(',')
+    subqueries = []
+    args = []
+    for tag in tag_list:
+        subqueries.append("""
+                        EXISTS (
+                                SELECT 1 FROM memo_tags mt
+                                JOIN tags t ON mt.tag_id = t.id
+                                WHERE mt.memo_id = memos.id AND t.name = ?
+                                )
+                        """)
+        args.append(tag)
+        
+    query = """
+                SELECT DISTINCT
+                    memos.id,
+                    memos.title,
+                    memos.body,
+                    GROUP_CONCAT(DISTINCT tags.name) AS tags
+                FROM
+                    memos
+                LEFT JOIN
+                    memo_tags ON memos.id = memo_tags.memo_id
+                LEFT JOIN
+                    tags ON memo_tags.tag_id = tags.id
+                WHERE
+                    ` + strings.Join(subqueries, " AND ") + `
+                GROUP BY
+                    memos.id, memos.title, memos.body;
+            """
+    try:
+        cursor = db.cursor()
+        cursor.execute(query, args)
+        memos = cursor.fetchall()
+        db.commit()
+        logger.debug(f"{len(memos)} memos hit")
+        return memos
+    except sqlite3.Error as e:
+        logger.error(f"Database error during insert_memo: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during insert_memo: {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
