@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 class Memo(BaseModel):
     title: str
     body: str
-    tags: str
+    tags: str = "" # tagsをオプションにするか、Formで受け取る
 
 class AddMemoResponse(BaseModel):
     message: str
@@ -67,15 +67,17 @@ def hello():
 
 # MARK: - GET /memos
 @app.get("/memos")
-def get_all_memos():
-    pass
-    
+def get_all_memos(db: sqlite3.Connection = Depends(get_db)):
+    return Get_all_memos(db)
+
+
 # MARK: - POST /memos
 @app.post("/memos", response_model=AddMemoResponse)
 def add_memo(
     # 引数 Form(...)はこの引数が必須であることを意味する
     title: str = Form(...),
     body: str = Form(...),
+    tags: str = Form(""), # tagsをFormで受け取る
     db: sqlite3.Connection = Depends(get_db),
 ):
     logger.debug(f"Received memo: title='{title}', body='{body}'")
@@ -83,7 +85,7 @@ def add_memo(
         raise HTTPException(status_code=400, detail="title is required")
     if not body:
         raise HTTPException(status_code=400, detail="body is required")
-    Add_memo(db, Memo(title=title, body=body))
+    Add_memo(db, Memo(title=title, body=body, tags=tags))
     return AddMemoResponse(**{"message": f"memo received: {title}"})
 
 # MARK: - DELETE /memos/{id}
@@ -93,18 +95,50 @@ def delete_memo(memo: Memo):
     return DeleteMemoResponse(**{"message": f"memo deleted: {memo.title}"})
 
 # MARK: - GET /search/keyword
-@app.get("/search/{keyword}")
-def search_memo_by_keyword():
-    Search_memo_by_keyword(db, keyword=keyword)
-    pass
+@app.get("/search/keyword")
+def search_memo_by_keyword(keyword: str, db: sqlite3.Connection = Depends(get_db)):
+    memos = Search_memo_by_keyword(db, keyword=keyword)
+    return memos
 
 
 # MARK: - GET /search/tags
-@app.get("/search/{tags}")
-def search_memo_by_tags():
-    Search_memo_by_tags(db, tags=tags)
+@app.get("/search/tags")
+def search_memo_by_tags(tags: str, db: sqlite3.Connection = Depends(get_db)):
+    memos = Search_memo_by_tags(db, tags=tags)
+    return memos
+
+####################################################
 
 
+# MARK: - Get_all_memos()
+def Get_all_memos(db: sqlite3.Connection):
+    try:
+        cursor = db.cursor()
+        cursor.execute("""
+            SELECT
+                memos.id,
+                memos.title,
+                memos.body,
+                GROUP_CONCAT(tags.name) AS tags
+            FROM
+                memos
+            LEFT JOIN
+                memo_tags ON memos.id = memo_tags.memo_id
+            LEFT JOIN
+                tags ON memo_tags.tag_id = tags.id
+            GROUP BY
+                memos.id
+        """)
+        memos = cursor.fetchall()
+        logger.debug(f"Retrieved {len(memos)} memos from database.")
+        return [dict(memo) for memo in memos]
+    except sqlite3.Error as e:
+        logger.error(f"Database error during Get_all_memos: {e}")
+        raise HTTPException(status_code=500, detail=f"Database error: {e}")
+    except Exception as e:
+        logger.error(f"An unexpected error occurred during Get_all_memos: {e}")
+        raise HTTPException(status_code=500, detail=f"Unexpected error: {e}")
+    
 
 
 # MARK: - Add_memo()
@@ -114,8 +148,25 @@ def Add_memo(db: sqlite3.Connection, memo: Memo):
     try:
         cursor = db.cursor()
         cursor.execute("INSERT INTO memos (title, body) VALUES (?, ?)", (memo.title, memo.body))
+        memo_id = cursor.lastrowid # 挿入されたメモのIDを取得
+
+        if memo.tags:
+            tag_list = [tag.strip() for tag in memo.tags.split(',') if tag.strip()]
+            for tag_name in tag_list:
+                # タグが存在するか確認し、存在しない場合は挿入
+                cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+                tag_row = cursor.fetchone()
+                if tag_row:
+                    tag_id = tag_row[0]
+                else:
+                    cursor.execute("INSERT INTO tags (name) VALUES (?)", (tag_name,))
+                    tag_id = cursor.lastrowid
+                
+                # memo_tags テーブルに挿入
+                cursor.execute("INSERT INTO memo_tags (memo_id, tag_id) VALUES (?, ?)", (memo_id, tag_id))
+        
         db.commit()
-        logger.debug(f"Memo inserted successfully: title='{memo.title}'")
+        logger.debug(f"Memo inserted successfully: title='{memo.title}', tags='{memo.tags}'")
     except sqlite3.Error as e:
         logger.error(f"Database error during insert_memo: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
@@ -160,11 +211,10 @@ def Search_memo_by_keyword(db: sqlite3.Connection, keyword: str):
     # memos = Memo[]
     try:
         cursor = db.cursor()
-        cursor.execute(query, keyword, keyword)
+        cursor.execute(query, (keyword, keyword))
         memos = cursor.fetchall()
-        db.commit()
         logger.debug(f"{len(memos)} memos hit")
-        return memos
+        return [dict(memo) for memo in memos]
     except sqlite3.Error as e:
         logger.error(f"Database error during insert_memo: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
@@ -200,7 +250,7 @@ def Search_memo_by_tags(db: sqlite3.Connection, tags: str):
                 LEFT JOIN
                     tags ON memo_tags.tag_id = tags.id
                 WHERE
-                    ` + strings.Join(subqueries, " AND ") + `
+                    """ + " AND ".join(subqueries) + """
                 GROUP BY
                     memos.id, memos.title, memos.body;
             """
@@ -208,9 +258,8 @@ def Search_memo_by_tags(db: sqlite3.Connection, tags: str):
         cursor = db.cursor()
         cursor.execute(query, args)
         memos = cursor.fetchall()
-        db.commit()
         logger.debug(f"{len(memos)} memos hit")
-        return memos
+        return [dict(memo) for memo in memos]
     except sqlite3.Error as e:
         logger.error(f"Database error during insert_memo: {e}")
         raise HTTPException(status_code=500, detail=f"Database error: {e}")
