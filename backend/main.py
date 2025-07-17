@@ -31,22 +31,29 @@ class DeleteMemoResponse(BaseModel):
     message: str
 
 # MARK: - get_db()
+# pathlib.Path(__file__): このコードファイル自身のパスを取得
+# .parent.parent.resolve(): ルートディレクトリを解決して、絶対パスを取得
+# /db/memos.sqlite3 があることを示している
 db = pathlib.Path(__file__).parent.parent.resolve() / "db" / "memos.sqlite3"
+
 def get_db():
     logger.debug(f"Checking if database exists: {db.exists()}")
     if not db.exists():
-        logger.info(f"Database file not found at {db}. Attempting to create and initialize.")
+        # memos.sqlite3が存在しなかったら
+        # logger.info(f"Database file not found at {db}. Attempting to create and initialize.")
         try:
+            # データベースに接続、なかったら作成
             conn = sqlite3.connect(db)
             cursor = conn.cursor()
             schema_path = pathlib.Path(__file__).parent.parent.resolve() / "db" / "schema.sql"
-            logger.debug(f"Schema path: {schema_path}")
+            # logger.debug(f"Schema path: {schema_path}")
             with open(schema_path, 'r', encoding='utf-8') as f:
                 sql_script = f.read()
+            # schemaファイルの中身を実行
             cursor.executescript(sql_script)
             conn.commit()
             conn.close()
-            logger.info("Database created and schema initialized successfully.")
+            logger.info("Database created successfully.")
         except sqlite3.Error as e:
             logger.error(f"Database creation/initialization error: {e}")
             raise HTTPException(status_code=500, detail=f"Database initialization error: {e}")
@@ -55,10 +62,19 @@ def get_db():
             raise HTTPException(status_code=500, detail=f"Unexpected database initialization error: {e}")
 
     conn = sqlite3.connect(db)
-    conn.row_factory = sqlite3.Row  # Return rows as dictionaries
+# sqlite3.Row: クエリの結果に列名でアクセスできる→辞書みたいにアクセスできる 便利！
+# row_factory: カーソルから取得された行の表現方法を制御
+    conn.row_factory = sqlite3.Row
     try:
+        # yield: When a generator function is called, it returns an iterator known as a generator. 
+        #        That generator then controls the execution of the generator function. 
+        #        The execution starts when one of the generator's methods is called. 
+        #        At that time, the execution proceeds to the first yield expression, where it is suspended again, 
+        #        returning the value of expression_list to the generator's caller, or None if expression_list is omitted.
+        # 各リクエストごとに新しい接続を確立し、要求元のエンドポイント関数に接続を提供している
         yield conn
     finally:
+        # 接続を確実に閉じる
         conn.close()
 
 @app.get("/")
@@ -67,6 +83,7 @@ def hello():
 
 # MARK: - GET /memos
 @app.get("/memos")
+# Depends()で、get_dbのyieldで提供されたそれぞれの接続を受け取る
 def get_all_memos(db: sqlite3.Connection = Depends(get_db)):
     return Get_all_memos(db)
 
@@ -111,6 +128,18 @@ def search_memo_by_tags(tags: str, db: sqlite3.Connection = Depends(get_db)):
 
 
 # MARK: - Get_all_memos()
+
+#     id title  body     tags
+# -- -----  ----     ----
+#  1 jacket testbody
+#  2 jacket testbody greeting,test
+#  3 jacket testbody greeting,te
+#  3 jacket testbody greeting,te
+#  4 skirt  testbody greeting,te
+#  5 skirt  testbody hi
+#  4 skirt  testbody greeting,te
+#  5 skirt  testbody hi
+#  5 skirt  testbody hi
 def Get_all_memos(db: sqlite3.Connection):
     try:
         cursor = db.cursor()
@@ -129,8 +158,10 @@ def Get_all_memos(db: sqlite3.Connection):
             GROUP BY
                 memos.id
         """)
+        # fetchall(): 結果のすべての行を返してくれる 便利！
         memos = cursor.fetchall()
         logger.debug(f"Retrieved {len(memos)} memos from database.")
+        # sqlite3.Rowのおかげでこれ↓で取得できる
         return [dict(memo) for memo in memos]
     except sqlite3.Error as e:
         logger.error(f"Database error during Get_all_memos: {e}")
@@ -151,6 +182,7 @@ def Add_memo(db: sqlite3.Connection, memo: Memo):
         memo_id = cursor.lastrowid # 挿入されたメモのIDを取得
 
         if memo.tags:
+            # tag.strip()で各タグ文字列の先頭と末尾にある空白を削除
             tag_list = [tag.strip() for tag in memo.tags.split(',') if tag.strip()]
             for tag_name in tag_list:
                 # タグが存在するか確認し、存在しない場合は挿入
@@ -211,6 +243,7 @@ def Search_memo_by_keyword(db: sqlite3.Connection, keyword: str):
     # memos = Memo[]
     try:
         cursor = db.cursor()
+        # Pythonだと複数のプレースホルダを渡すときはtupleかlist
         cursor.execute(query, (keyword, keyword))
         memos = cursor.fetchall()
         logger.debug(f"{len(memos)} memos hit")
@@ -256,6 +289,7 @@ def Search_memo_by_tags(db: sqlite3.Connection, tags: str):
             """
     try:
         cursor = db.cursor()
+        # argsはリストだけどSearch_memo_by_keywordと同様に受け取れる
         cursor.execute(query, args)
         memos = cursor.fetchall()
         logger.debug(f"{len(memos)} memos hit")
