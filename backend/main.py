@@ -186,7 +186,9 @@ def Add_memo(db: sqlite3.Connection, memo: Memo):
             tag_list = [tag.strip() for tag in memo.tags.split(',') if tag.strip()]
             for tag_name in tag_list:
                 # タグが存在するか確認し、存在しない場合は挿入
+                # .execute()メソッドはパラメータをtuple/listで渡す必要があるらしい
                 cursor.execute("SELECT id FROM tags WHERE name = ?", (tag_name,))
+                # fetchone: 次の1行を取得し、カーソルを次に進める
                 tag_row = cursor.fetchone()
                 if tag_row:
                     tag_id = tag_row[0]
