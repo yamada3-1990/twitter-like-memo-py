@@ -29,3 +29,38 @@ $ cd frontend
 $ npm install
 $ npm run dev
 ```
+
+## 📚学び
+
+main.pyの方で
+```
+@app.get("/memos")
+def get_all_memos(db: sqlite3.Connection = Depends(get_db)):
+    memos = Get_all_memos(db)
+    return {"memos": memos} ←/memosエンドポイントが返す形式
+```
+と実装していたら、(api.jsのgetAllMemo()で経由で)受け取ったデータを利用するときは、  
+MemoList.jsxの方では 
+```
+const getAllMemosList = async () => {
+        try {
+            const data = await getAllMemos();
+            console.debug('GET all memos success:', data);
+            setMemos(data.memos || []); ←ココ
+        } catch ......
+```
+と受け取らないと認識されない  
+↓ gemini作
+
+```mermaid
+sequenceDiagram
+    participant FE as Frontend (MemoList.jsx)
+    participant API as API (api.js)
+    participant BE as Backend (main.py)
+
+    FE->>API: getAllMemos()
+    API->>BE: GET /memos
+    BE->>API: {"memos": memos}
+    API->>FE: data
+    FE->>FE: setMemos(data.memos)
+```

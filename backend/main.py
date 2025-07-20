@@ -89,11 +89,17 @@ def get_db():
 def hello():
     return {"message": "Hello, world!"}
 
+@app.options("/memos")
+async def options_memos():
+    return {}
+
 # MARK: - GET /memos
 @app.get("/memos")
 # Depends()で、get_dbのyieldで提供されたそれぞれの接続を受け取る
 def get_all_memos(db: sqlite3.Connection = Depends(get_db)):
-    return Get_all_memos(db)
+    memos = Get_all_memos(db)
+    # MemoList.jsxの方でdata.memosの形でほしいと書いたからその形式で返す
+    return {"memos": memos}
 
 
 # MARK: - POST /memos

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import './MemoList.css'
-import { getAllMemos, Memo } from '../api/api'
+import { getAllMemos } from '../api/api'
 
 export const MemoList = (props) => {
     const [memos, setMemos] = useState([]);
@@ -10,6 +10,7 @@ export const MemoList = (props) => {
         try {
             const data = await getAllMemos();
             console.debug('GET all memos success:', data);
+            // main.pyの方でdata.memosの形でほしいと書いたらその形式で返さないといけない
             setMemos(data.memos || []);
         } catch (error) {
             console.error('GET all memos error:', error);

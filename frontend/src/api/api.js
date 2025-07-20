@@ -7,6 +7,10 @@ export function Memo(id, title, body, tags) {
     this.tags = tags;
 };
 
+// export const MemoListResponse = {
+//     memos: Memo
+// };
+
 export const getAllMemos = async () => {
     const res = await fetch(`${BACKEND_URL}/memos`, {
         method: 'GET',
@@ -17,5 +21,9 @@ export const getAllMemos = async () => {
         },
     });
     //TODO: エラーハンドリング追加する
+    if (res.status >= 400) {
+        const error = await res.json();
+        throw new Error(`Failed to fetch memos from the server: ${JSON.stringify(error)}`);
+    }
     return res.json();
 }
