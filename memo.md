@@ -22,3 +22,10 @@ $ Invoke-RestMethod -Method GET -Uri 'http://127.0.0.1:9000/memos' -ContentType 
 $ Invoke-RestMethod -Method GET -Uri 'http://127.0.0.1:9000/search/keyword?keyword=test'
 $ Invoke-RestMethod -Method GET -Uri 'http://127.0.0.1:9000/search/tags?tags=greeting,test'
 ```
+
+frontend
+```
+$ cd frontend
+$ npm install
+$ npm run dev
+```
