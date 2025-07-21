@@ -64,3 +64,10 @@ sequenceDiagram
     API->>FE: data
     FE->>FE: setMemos(data.memos)
 ```
+
+| 特徴           | formValue (Golang) | FormData (JavaScript) |
+| :------------- | :------------------- | :---------------------- |
+| 役割           | 個々のフィールドの値の取得 | フォーム全体のデータの構造化と送信 |
+| データ型         | 文字列               | 多様なデータ型（テキスト、ファイルなど） |
+| エンコード形式     | 通常は application/x-www-form-urlencoded | multipart/form-data       |
+| 複数値のサポート | 最初の値のみ         | 複数の値を扱える          |

@@ -28,6 +28,8 @@ export const getAllMemos = async () => {
 }
 
 export const addMemo = async (values) => {
+    // FormDataオブジェクトを作成し、フォームの入力値をFormDataオブジェクトに追加していく
+    // いろんなフォームデータを扱える便利な箱みたいなイメージ
     const formData = new FormData();
     formData.append('title', values.title);
     formData.append('body', values.body);
