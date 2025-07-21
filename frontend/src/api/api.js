@@ -20,10 +20,27 @@ export const getAllMemos = async () => {
             Accept: 'application/json',
         },
     });
-    //TODO: エラーハンドリング追加する
     if (res.status >= 400) {
         const error = await res.json();
         throw new Error(`Failed to fetch memos from the server: ${JSON.stringify(error)}`);
     }
     return res.json();
+}
+
+export const addMemo = async (values) => {
+    const formData = new FormData();
+    formData.append('title', values.title);
+    formData.append('body', values.body);
+    formData.append('tags', values.tags);
+
+    const res = await fetch(`${BACKEND_URL}/memos`, {
+        method: 'POST',
+        mode: 'cors',
+        body: formData,
+    });
+    if (res.status >= 400) {
+        const error = await res.json();
+        throw new Error(`Failed to fetch memos from the server: ${JSON.stringify(error)}`);
+    }
+    return res
 }
