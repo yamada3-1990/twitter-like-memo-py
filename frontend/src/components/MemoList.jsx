@@ -35,12 +35,5 @@ export const MemoList = (props) => {
     );
 };
 
-// function MemoList() {
-//     return (
-//         <>
-//             <h1>Hello</h1>
-//         </>
-//     )
-// }
 
 export default MemoList

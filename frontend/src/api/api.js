@@ -46,3 +46,19 @@ export const addMemo = async (values) => {
     }
     return res
 }
+
+export const searchMemoByKeyword = async (keyword) => {
+    const res = await fetch(`${BACKEND_URL}/search`, {
+        method: 'GET',
+        mode: 'cors',
+        headers: {
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+        },
+    });
+    if (res.status >= 400) {
+        const error = await res.json();
+        throw new Error(`Failed to fetch memos from the server: ${JSON.stringify(error)}`);
+    }
+    return res
+}
